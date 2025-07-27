@@ -1,0 +1,49 @@
+name: Release
+on:
+  workflow_dispatch:  # Add manual trigger option
+  push:
+    tags:
+      - 'v*'
+
+# Specify minimum required permissions based on workflow steps
+permissions:
+  contents: write  # Required for checkout (read), creating releases, and uploading assets
+  actions: read    # Required to fetch and use actions like checkout, setup-go, gh-release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for tags
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        check-latest: true
+
+    - name: Build all platforms
+      run: |
+        # Ensure VERSION is set correctly, GITHUB_REF_NAME is usually cleaner for tags
+        VERSION=${GITHUB_REF_NAME} # Recommended for tags like 'v1.2.3'
+        echo "Building version $VERSION"
+        make build-all
+      env:
+        # Pass VERSION explicitly to make if needed by the Makefile
+        VERSION: ${{ github.ref_name }}
+
+    - name: List build directory contents
+      run: ls -lash build/
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build/rag-cli-linux-amd64
+          build/rag-cli-linux-arm64
+          build/rag-cli-darwin-amd64
+          build/rag-cli-darwin-arm64
+        generate_release_notes: true
