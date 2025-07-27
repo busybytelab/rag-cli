@@ -19,6 +19,9 @@ var (
 	KeyColor   = color.New(color.FgCyan)
 	ValueColor = color.New(color.FgWhite)
 
+	// Highlight color for version and important information
+	HighlightColor = color.New(color.FgHiCyan)
+
 	// Disable colors flag
 	colorsDisabled bool
 )
@@ -123,4 +126,12 @@ func KeyValuef(key, format string, args ...interface{}) {
 		KeyColor.Printf("%s: ", key)
 		ValueColor.Printf(format+"\n", args...)
 	}
+}
+
+// Highlight returns a highlighted string
+func Highlight(text string) string {
+	if colorsDisabled {
+		return text
+	}
+	return HighlightColor.Sprint(text)
 }
