@@ -36,15 +36,17 @@ on:
 # 3. Consider enabling the Security tab integration for better visualization of issues
 # More info: https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning/configuring-default-setup-for-code-scanning
 
+# Explicitly set minimal permissions at workflow level
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+  id-token: write
+
 jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-      id-token: write
 
     steps:
       - name: Checkout repository
