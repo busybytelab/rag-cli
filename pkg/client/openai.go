@@ -164,6 +164,53 @@ func (c *OpenAIClient) Chat(ctx context.Context, model string, messages []Messag
 	}, nil
 }
 
+// Rerank reranks documents using the reranker model
+func (c *OpenAIClient) Rerank(ctx context.Context, query string, documents []string, instruction string) ([]RerankResult, error) {
+	if len(documents) == 0 {
+		return []RerankResult{}, nil
+	}
+
+	// For OpenAI, we'll use a similar approach as Ollama by generating embeddings
+	// and computing cosine similarity as a reranking score
+	queryEmbedding, err := c.GenerateEmbedding(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
+	}
+
+	var results []RerankResult
+	for i, doc := range documents {
+		docEmbedding, err := c.GenerateEmbedding(ctx, doc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate document embedding: %w", err)
+		}
+
+		// Compute cosine similarity
+		score := cosineSimilarity(queryEmbedding, docEmbedding)
+
+		results = append(results, RerankResult{
+			Document: doc,
+			Score:    float64(score),
+			Rank:     i + 1,
+		})
+	}
+
+	// Sort by score in descending order
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[i].Score < results[j].Score {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+
+	// Update ranks after sorting
+	for i := range results {
+		results[i].Rank = i + 1
+	}
+
+	return results, nil
+}
+
 // Generate performs text generation with the specified model
 func (c *OpenAIClient) Generate(ctx context.Context, model string, prompt string, options map[string]interface{}) (*GenerateResponse, error) {
 	if model == "" {
