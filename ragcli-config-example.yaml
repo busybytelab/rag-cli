@@ -1,0 +1,27 @@
+# RAG CLI Database Configuration Example
+# Copy this to ~/.rag-cli/config.yaml
+
+database:
+  host: localhost
+  port: 5432
+  name: ragcli
+  user: ragcli_admin
+  password: 
+  ssl_mode: prefer
+
+ollama:
+  host: localhost
+  port: 11434
+  tls: false
+  chat_model: qwen3:4b
+  embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
+
+embedding:
+  chunk_size: 1000
+  chunk_overlap: 200
+  similarity_threshold: 0.7
+  max_results: 10
+
+general:
+  log_level: info
+  data_dir: ~/.rag-cli/data
