@@ -11,24 +11,24 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-// New creates a new client based on the backend configuration
+// New creates a new client based on the chat backend configuration
 func New(cfg *config.Config) (Client, error) {
-	switch cfg.Backend {
+	switch cfg.ChatBackend {
 	case "ollama":
 		return NewOllama(&cfg.Ollama)
 	case "openai":
 		return NewOpenAI(&cfg.OpenAI)
 	default:
-		return nil, fmt.Errorf("unsupported backend: %s", cfg.Backend)
+		return nil, fmt.Errorf("unsupported chat_backend: %s", cfg.ChatBackend)
 	}
 }
 
 // NewEmbedder creates a new embedder based on the embedding backend configuration
 func NewEmbedder(cfg *config.Config) (Embedder, error) {
-	// Use embedding backend if specified, otherwise fall back to main backend
+	// Use embedding backend if specified, otherwise fall back to chat backend
 	embeddingBackend := cfg.EmbeddingBackend
 	if embeddingBackend == "" {
-		embeddingBackend = cfg.Backend
+		embeddingBackend = cfg.ChatBackend
 	}
 
 	switch embeddingBackend {
@@ -65,7 +65,7 @@ func NewOllama(cfg *config.OllamaConfig) (Client, error) {
 // GenerateEmbedding generates embeddings for the given text
 func (c *OllamaClient) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
 	req := &api.EmbeddingRequest{
-		Model:  c.config.EmbedModel,
+		Model:  c.config.EmbeddingModel,
 		Prompt: text,
 	}
 
@@ -86,7 +86,7 @@ func (c *OllamaClient) GenerateEmbedding(ctx context.Context, text string) ([]fl
 // Chat performs a chat completion with the specified model
 func (c *OllamaClient) Chat(ctx context.Context, model string, messages []Message, stream bool) (*ChatResponse, error) {
 	if model == "" {
-		model = c.config.Model
+		model = c.config.ChatModel
 	}
 
 	// Convert our Message type to Ollama api.Message type
@@ -128,7 +128,7 @@ func (c *OllamaClient) Chat(ctx context.Context, model string, messages []Messag
 // Generate performs text generation with the specified model
 func (c *OllamaClient) Generate(ctx context.Context, model string, prompt string, options map[string]interface{}) (*GenerateResponse, error) {
 	if model == "" {
-		model = c.config.Model
+		model = c.config.ChatModel
 	}
 
 	req := &api.GenerateRequest{

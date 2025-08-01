@@ -252,10 +252,10 @@ ollama serve
 ### Pull Required Models
 ```bash
 # Pull embedding model
-ollama pull nomic-embed-text
+ollama pull dengcao/Qwen3-Embedding-0.6B:Q8_0
 
 # Pull LLM model (optional, will be pulled automatically when needed)
-ollama pull llama3.2:3b
+ollama pull qwen3:4b
 ```
 
 ### Verification

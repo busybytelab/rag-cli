@@ -16,13 +16,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// getDefaultModelName returns the default model name based on the backend configuration
+// getDefaultModelName returns the default model name based on the chat backend configuration
 func getDefaultModelName(cfg *config.Config) string {
-	switch cfg.Backend {
+	switch cfg.ChatBackend {
 	case "ollama":
-		return cfg.Ollama.Model
+		return cfg.Ollama.ChatModel
 	case "openai":
-		return cfg.OpenAI.Model
+		return cfg.OpenAI.ChatModel
 	default:
 		return "unknown"
 	}
@@ -184,7 +184,7 @@ func initializeChatSession(cmd *cobra.Command, collectionID string) (*chatSessio
 
 	output.Success("Starting chat session with collection: %s", collection.Name)
 	output.KeyValue("Collection", collection.Name)
-	output.KeyValue("Chat Backend", cfg.Backend)
+	output.KeyValue("Chat Backend", cfg.ChatBackend)
 	output.KeyValue("Embedding Backend", cfg.EmbeddingBackend)
 	if chatModel != "" {
 		output.KeyValue("Chat Model", chatModel)

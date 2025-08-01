@@ -117,24 +117,24 @@ rag-cli config edit
 ### Default Configuration
 
 ```yaml
-# Main backend for chat and generation operations
-backend: ollama
+# Chat backend for chat and generation operations
+chat_backend: ollama
 
-# Embedding backend for vector embeddings (defaults to main backend if not specified)
+# Embedding backend for vector embeddings (defaults to chat backend if not specified)
 embedding_backend: ollama
 
 ollama:
   host: localhost
   port: 11434
   tls: false
-  model: llama3.2:3b
-  embed_model: nomic-embed-text
+  chat_model: qwen3:4b
+  embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
 
 openai:
   api_key: ""
   base_url: ""
-  model: gpt-4
-  embed_model: text-embedding-3-small
+  chat_model: gpt-4
+  embedding_model: text-embedding-3-small
 
 database:
   host: localhost
@@ -159,19 +159,19 @@ general:
 
 The application supports two backends: **Ollama** and **OpenAI**. You can configure them separately:
 
-- **`backend`**: Used for chat and text generation operations
-- **`embedding_backend`**: Used for generating vector embeddings (defaults to main backend if not specified)
+- **`chat_backend`**: Used for chat and text generation operations
+- **`embedding_backend`**: Used for generating vector embeddings (defaults to chat backend if not specified)
 
 This allows you to use different backends for different operations. For example:
 
 ```yaml
 # Use OpenAI for chat but Ollama for embeddings
-backend: openai
+chat_backend: openai
 embedding_backend: ollama
 
 # Use Ollama for both (default behavior)
-backend: ollama
-embedding_backend: ollama  # or omit this line to use the same as backend
+chat_backend: ollama
+embedding_backend: ollama  # or omit this line to use the same as chat_backend
 ```
 
 ## Usage

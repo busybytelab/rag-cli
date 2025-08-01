@@ -19,8 +19,8 @@ var CurrentConfigName string
 
 // Config represents the application configuration
 type Config struct {
-	Backend          string          `mapstructure:"backend" yaml:"backend"`                     // "ollama" or "openai"
-	EmbeddingBackend string          `mapstructure:"embedding_backend" yaml:"embedding_backend"` // "ollama" or "openai" (defaults to backend if not specified)
+	ChatBackend      string          `mapstructure:"chat_backend" yaml:"chat_backend"`           // "ollama" or "openai"
+	EmbeddingBackend string          `mapstructure:"embedding_backend" yaml:"embedding_backend"` // "ollama" or "openai" (defaults to chat_backend if not specified)
 	Ollama           OllamaConfig    `mapstructure:"ollama" yaml:"ollama"`
 	OpenAI           OpenAIConfig    `mapstructure:"openai" yaml:"openai"`
 	Database         DatabaseConfig  `mapstructure:"database" yaml:"database"`
@@ -30,19 +30,19 @@ type Config struct {
 
 // OllamaConfig represents Ollama server configuration
 type OllamaConfig struct {
-	Host       string `mapstructure:"host" yaml:"host"`
-	Port       int    `mapstructure:"port" yaml:"port"`
-	TLS        bool   `mapstructure:"tls" yaml:"tls"`
-	Model      string `mapstructure:"model" yaml:"model"`
-	EmbedModel string `mapstructure:"embed_model" yaml:"embed_model"`
+	Host           string `mapstructure:"host" yaml:"host"`
+	Port           int    `mapstructure:"port" yaml:"port"`
+	TLS            bool   `mapstructure:"tls" yaml:"tls"`
+	ChatModel      string `mapstructure:"chat_model" yaml:"chat_model"`
+	EmbeddingModel string `mapstructure:"embedding_model" yaml:"embedding_model"`
 }
 
 // OpenAIConfig represents OpenAI API configuration
 type OpenAIConfig struct {
-	APIKey     string `mapstructure:"api_key" yaml:"api_key"`
-	BaseURL    string `mapstructure:"base_url" yaml:"base_url"` // For local servers like llama-server
-	Model      string `mapstructure:"model" yaml:"model"`
-	EmbedModel string `mapstructure:"embed_model" yaml:"embed_model"`
+	APIKey         string `mapstructure:"api_key" yaml:"api_key"`
+	BaseURL        string `mapstructure:"base_url" yaml:"base_url"` // For local servers like llama-server
+	ChatModel      string `mapstructure:"chat_model" yaml:"chat_model"`
+	EmbeddingModel string `mapstructure:"embedding_model" yaml:"embedding_model"`
 }
 
 // DatabaseConfig represents PostgreSQL database configuration
@@ -61,6 +61,7 @@ type EmbeddingConfig struct {
 	ChunkOverlap        int     `mapstructure:"chunk_overlap" yaml:"chunk_overlap"`
 	SimilarityThreshold float64 `mapstructure:"similarity_threshold" yaml:"similarity_threshold"`
 	MaxResults          int     `mapstructure:"max_results" yaml:"max_results"`
+	Dimensions          int     `mapstructure:"dimensions" yaml:"dimensions"` // Embedding vector dimensions
 }
 
 // GeneralConfig represents general application configuration
@@ -69,16 +70,39 @@ type GeneralConfig struct {
 	DataDir  string `mapstructure:"data_dir" yaml:"data_dir"`
 }
 
+// Validate checks if the embedding configuration is valid
+func (c *EmbeddingConfig) Validate() error {
+	if c.ChunkSize <= 0 {
+		return fmt.Errorf("chunk size must be greater than 0")
+	}
+	if c.ChunkOverlap < 0 {
+		return fmt.Errorf("chunk overlap cannot be negative")
+	}
+	if c.ChunkOverlap >= c.ChunkSize {
+		return fmt.Errorf("chunk overlap must be less than chunk size")
+	}
+	if c.SimilarityThreshold < 0 || c.SimilarityThreshold > 1 {
+		return fmt.Errorf("similarity threshold must be between 0 and 1")
+	}
+	if c.MaxResults <= 0 {
+		return fmt.Errorf("max results must be greater than 0")
+	}
+	if c.Dimensions <= 0 {
+		return fmt.Errorf("embedding dimensions must be greater than 0")
+	}
+	return nil
+}
+
 // Validate checks if the configuration is valid and can connect to the database
 func (c *Config) Validate() error {
-	// Validate backend selection
-	if c.Backend != "ollama" && c.Backend != "openai" {
-		return fmt.Errorf("invalid backend: %s. Must be 'ollama' or 'openai'", c.Backend)
+	// Validate chat backend selection
+	if c.ChatBackend != "ollama" && c.ChatBackend != "openai" {
+		return fmt.Errorf("invalid chat_backend: %s. Must be 'ollama' or 'openai'", c.ChatBackend)
 	}
 
-	// Set embedding backend to main backend if not specified
+	// Set embedding backend to chat backend if not specified
 	if c.EmbeddingBackend == "" {
-		c.EmbeddingBackend = c.Backend
+		c.EmbeddingBackend = c.ChatBackend
 	}
 
 	// Validate embedding backend selection
@@ -86,13 +110,18 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid embedding_backend: %s. Must be 'ollama' or 'openai'", c.EmbeddingBackend)
 	}
 
+	// Validate embedding configuration
+	if err := c.Embedding.Validate(); err != nil {
+		return fmt.Errorf("embedding configuration error: %w", err)
+	}
+
 	// Validate database configuration
 	if err := c.Database.Validate(); err != nil {
 		return fmt.Errorf("database configuration error: %w", err)
 	}
 
-	// Validate backend-specific configuration
-	switch c.Backend {
+	// Validate chat backend-specific configuration
+	switch c.ChatBackend {
 	case "ollama":
 		if err := c.Ollama.Validate(); err != nil {
 			return fmt.Errorf("ollama configuration error: %w", err)
@@ -157,10 +186,10 @@ func (c *OllamaConfig) Validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("ollama port must be between 1 and 65535")
 	}
-	if c.Model == "" {
-		return fmt.Errorf("ollama model cannot be empty")
+	if c.ChatModel == "" {
+		return fmt.Errorf("ollama chat_model cannot be empty")
 	}
-	if c.EmbedModel == "" {
+	if c.EmbeddingModel == "" {
 		return fmt.Errorf("ollama embed model cannot be empty")
 	}
 
@@ -172,10 +201,10 @@ func (c *OpenAIConfig) Validate() error {
 	if c.APIKey == "" {
 		return fmt.Errorf("openai api key cannot be empty")
 	}
-	if c.Model == "" {
-		return fmt.Errorf("openai model cannot be empty")
+	if c.ChatModel == "" {
+		return fmt.Errorf("openai chat_model cannot be empty")
 	}
-	if c.EmbedModel == "" {
+	if c.EmbeddingModel == "" {
 		return fmt.Errorf("openai embed model cannot be empty")
 	}
 
@@ -373,7 +402,7 @@ func SaveConfig(config *Config, configFile string) error {
 	viper.SetConfigFile(configFile)
 
 	// Set the configuration values
-	viper.Set("backend", config.Backend)
+	viper.Set("chat_backend", config.ChatBackend)
 	viper.Set("embedding_backend", config.EmbeddingBackend)
 	viper.Set("ollama", config.Ollama)
 	viper.Set("openai", config.OpenAI)
@@ -389,20 +418,20 @@ func getDefaultConfig() *Config {
 	home, _ := homedir.Dir()
 
 	return &Config{
-		Backend:          "ollama", // Default to Ollama
+		ChatBackend:      "ollama", // Default to Ollama
 		EmbeddingBackend: "ollama", // Default to Ollama
 		Ollama: OllamaConfig{
-			Host:       "localhost",
-			Port:       11434,
-			TLS:        false,
-			Model:      "llama3.2:3b",
-			EmbedModel: "nomic-embed-text",
+			Host:           "localhost",
+			Port:           11434,
+			TLS:            false,
+			ChatModel:      "qwen3:4b",
+			EmbeddingModel: "dengcao/Qwen3-Embedding-0.6B:Q8_0",
 		},
 		OpenAI: OpenAIConfig{
-			APIKey:     "",
-			BaseURL:    "",
-			Model:      "gpt-4",
-			EmbedModel: "text-embedding-3-small",
+			APIKey:         "",
+			BaseURL:        "",
+			ChatModel:      "gpt-4",
+			EmbeddingModel: "text-embedding-3-small",
 		},
 		Database: DatabaseConfig{
 			Host:     "localhost",
@@ -417,6 +446,7 @@ func getDefaultConfig() *Config {
 			ChunkOverlap:        200,
 			SimilarityThreshold: 0.7,
 			MaxResults:          10,
+			Dimensions:          1024, // Default to 1024 for dengcao/Qwen3-Embedding-0.6B:Q8_0
 		},
 		General: GeneralConfig{
 			LogLevel: "info",

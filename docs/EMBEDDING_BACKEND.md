@@ -11,11 +11,11 @@ The RAG CLI supports separate backend configuration for embeddings and chat oper
 In your `~/.rag-cli/config.yaml` file, you can now specify:
 
 ```yaml
-# Main backend for chat and generation operations
-backend: ollama
+# Chat backend for chat and generation operations
+chat_backend: ollama
 
 # Embedding backend for vector embeddings
-embedding_backend: ollama  # defaults to backend if not specified
+embedding_backend: ollama  # defaults to chat_backend if not specified
 ```
 
 ### Use Cases
@@ -23,19 +23,19 @@ embedding_backend: ollama  # defaults to backend if not specified
 #### 1. Use Ollama for Embeddings, OpenAI for Chat
 
 ```yaml
-backend: openai
+chat_backend: openai
 embedding_backend: ollama
 
 ollama:
   host: localhost
   port: 11434
-  model: llama3.2:3b
-  embed_model: nomic-embed-text
+  chat_model: qwen3:4b
+  embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
 
 openai:
   api_key: "your-openai-api-key"
-  model: gpt-4
-  embed_model: text-embedding-3-small
+  chat_model: gpt-4
+  embedding_model: text-embedding-3-small
 ```
 
 This configuration:
@@ -46,26 +46,26 @@ This configuration:
 #### 2. Use OpenAI for Both
 
 ```yaml
-backend: openai
+chat_backend: openai
 embedding_backend: openai
 
 openai:
   api_key: "your-openai-api-key"
-  model: gpt-4
-  embed_model: text-embedding-3-small
+  chat_model: gpt-4
+  embedding_model: text-embedding-3-small
 ```
 
 #### 3. Use Ollama for Both (Default)
 
 ```yaml
-backend: ollama
-# embedding_backend: ollama  # optional, defaults to backend
+chat_backend: ollama
+# embedding_backend: ollama  # optional, defaults to chat_backend
 
 ollama:
   host: localhost
   port: 11434
-  model: llama3.2:3b
-  embed_model: nomic-embed-text
+  chat_model: qwen3:4b
+  embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
 ```
 
 ## How It Works
@@ -80,13 +80,13 @@ The following commands use the `embedding_backend`:
 
 ### Commands That Use Chat
 
-The following commands use the main `backend`:
+The following commands use the `chat_backend`:
 
 - **`rag-cli chat`**: Generates responses using the chat model
 
 ### Implementation Details
 
-- When `embedding_backend` is not specified, it defaults to the main `backend`
+- When `embedding_backend` is not specified, it defaults to the `chat_backend`
 - Both backends are validated independently
 - The system creates separate client instances for embeddings and chat when needed
 - If both backends are the same, the system optimizes by reusing the same client instance
@@ -98,19 +98,19 @@ The following commands use the main `backend`:
 ```bash
 # Configure for local embeddings, cloud chat
 cat > ~/.rag-cli/config.yaml << EOF
-backend: openai
+chat_backend: openai
 embedding_backend: ollama
 
 ollama:
   host: localhost
   port: 11434
-  model: llama3.2:3b
-  embed_model: nomic-embed-text
+  model: qwen3:4b
+  embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
 
 openai:
   api_key: "your-openai-api-key"
   model: gpt-4
-  embed_model: text-embedding-3-small
+  embedding_model: text-embedding-3-small
 
 database:
   host: localhost
@@ -143,13 +143,13 @@ rag-cli chat my-collection
 ```bash
 # Configure for production OpenAI usage
 cat > ~/.rag-cli/config.yaml << EOF
-backend: openai
+chat_backend: openai
 embedding_backend: openai
 
 openai:
   api_key: "your-openai-api-key"
   model: gpt-4
-  embed_model: text-embedding-3-small
+  embedding_model: text-embedding-3-small
 
 database:
   host: your-db-host
@@ -179,15 +179,15 @@ The configuration system validates both backends:
 # Check your configuration
 rag-cli config show
 
-# This will show both backend and embedding_backend settings
+# This will show both chat_backend and embedding_backend settings
 ```
 
 ## Migration
 
 If you have an existing configuration, the system will automatically:
 
-1. Use your existing `backend` setting
-2. Set `embedding_backend` to the same value as `backend`
+1. Use your existing `chat_backend` setting
+2. Set `embedding_backend` to the same value as `chat_backend`
 3. Maintain backward compatibility
 
 No manual migration is required. 

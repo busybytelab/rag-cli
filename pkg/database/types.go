@@ -50,6 +50,15 @@ type DatabaseManager interface {
 	// Connection management
 	Close() error
 	InitSchema() error
+
+	// Embedding dimension management
+	GetEmbeddingDimensions(collectionID string) (int, error)
+	SetEmbeddingDimensions(collectionID string, dimensions int, modelName string) error
+
+	// Migration management
+	GetMigrationVersion() (int, error)
+	RunMigrations(targetVersion int) error
+	GetTotalMigrations() int
 }
 
 // Common types used across interfaces

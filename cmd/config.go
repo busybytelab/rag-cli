@@ -35,7 +35,7 @@ var showConfigCmd = &cobra.Command{
 		output.Info("")
 
 		output.Bold("Backend Settings:")
-		output.Info("  Backend: %s", cfg.Backend)
+		output.Info("  Chat Backend: %s", cfg.ChatBackend)
 		output.Info("  Embedding Backend: %s", cfg.EmbeddingBackend)
 		output.Info("")
 
@@ -43,15 +43,15 @@ var showConfigCmd = &cobra.Command{
 		output.Info("  Host: %s", cfg.Ollama.Host)
 		output.Info("  Port: %d", cfg.Ollama.Port)
 		output.Info("  TLS: %t", cfg.Ollama.TLS)
-		output.Info("  Model: %s", cfg.Ollama.Model)
-		output.Info("  Embed Model: %s", cfg.Ollama.EmbedModel)
+		output.Info("  Chat Model: %s", cfg.Ollama.ChatModel)
+		output.Info("  Embed Model: %s", cfg.Ollama.EmbeddingModel)
 		output.Info("")
 
 		output.Bold("OpenAI Settings:")
 		output.Info("  API Key: %s", maskAPIKey(cfg.OpenAI.APIKey))
 		output.Info("  Base URL: %s", cfg.OpenAI.BaseURL)
-		output.Info("  Model: %s", cfg.OpenAI.Model)
-		output.Info("  Embed Model: %s", cfg.OpenAI.EmbedModel)
+		output.Info("  Chat Model: %s", cfg.OpenAI.ChatModel)
+		output.Info("  Embed Model: %s", cfg.OpenAI.EmbeddingModel)
 		output.Info("")
 
 		output.Bold("Database Settings:")

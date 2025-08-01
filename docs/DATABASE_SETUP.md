@@ -7,6 +7,7 @@ This guide covers setting up PostgreSQL for use with the RAG CLI tool, including
 - [Database and User Setup](#database-and-user-setup)
 - [Permissions Configuration](#permissions-configuration)
 - [SSL Configuration](#ssl-configuration)
+- [Embedding Model Limitations](#embedding-model-limitations)
 - [Troubleshooting](#troubleshooting)
 - [Configuration Examples](#configuration-examples)
 
@@ -90,6 +91,49 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ragcli_admin
 -- Grant extension creation permission (if needed)
 GRANT CREATE ON DATABASE ragcli TO ragcli_admin;
 ```
+
+## Embedding Model Limitations
+
+### Vector Dimensions
+
+The RAG CLI database schema is configured to support embeddings with **1024 dimensions**. This limitation affects which embedding models you can use:
+
+#### Supported Models (≤1024 dimensions):
+- **nomic-embed-text**: 768 dimensions ✅
+- **nomic-embed-text-v2**: 768 dimensions ✅
+- **qwen3-embedding**: 1024 dimensions ✅
+- **all-minilm models**: 384 dimensions ✅
+- **all-mpnet-base-v2**: 768 dimensions ✅
+
+#### Unsupported Models (>1024 dimensions):
+- **text-embedding-3-small**: 1536 dimensions ❌
+- **text-embedding-3-large**: 3072 dimensions ❌
+- **text-embedding-ada-002**: 1536 dimensions ❌
+
+### Changing Embedding Models
+
+**⚠️ Important**: If you need to use an embedding model with different dimensions than 1024, you will need to:
+
+1. **Drop and recreate the database** (this will lose all indexed data)
+2. **Update the migration schema** in `pkg/database/migrations.go`
+3. **Re-run database setup** and re-index all documents
+
+#### Example: Switching to 1536-dimension model
+
+```sql
+-- Drop existing database
+DROP DATABASE ragcli;
+
+-- Recreate database
+CREATE DATABASE ragcli;
+
+-- Update migration file: change vector(1024) to vector(1536)
+-- Then run: rag-cli migrate up
+```
+
+### Recommended Approach
+
+For production systems, choose your embedding model carefully before indexing large amounts of data. The default `dengcao/Qwen3-Embedding-0.6B:Q8_0` (1024 dimensions) is recommended for most use cases.
 
 ## SSL Configuration
 

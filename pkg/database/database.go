@@ -11,7 +11,8 @@ import (
 
 // DatabaseManagerImpl implements DatabaseManager interface
 type DatabaseManagerImpl struct {
-	db *sql.DB
+	db               *sql.DB
+	migrationManager *MigrationManager
 }
 
 // NewDatabaseManager creates a new database manager with all three components
@@ -38,7 +39,8 @@ func NewDatabaseManager(cfg *config.DatabaseConfig) (DatabaseManager, error) {
 
 	// Create the main database manager
 	databaseManager := &DatabaseManagerImpl{
-		db: db,
+		db:               db,
+		migrationManager: NewMigrationManager(db),
 	}
 
 	// Initialize the database schema
@@ -54,61 +56,36 @@ func (dm *DatabaseManagerImpl) Close() error {
 	return dm.db.Close()
 }
 
-// InitSchema initializes the database schema
+// InitSchema initializes the database schema using migrations
 func (dm *DatabaseManagerImpl) InitSchema() error {
-	// TODO: embedding vector size must be configurable
-	queries := []string{
-		`CREATE EXTENSION IF NOT EXISTS vector;`,
-		`CREATE TABLE IF NOT EXISTS collections (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			name VARCHAR(255) NOT NULL UNIQUE,
-			description TEXT,
-			folders TEXT[] NOT NULL,
-			stats JSONB DEFAULT '{"total_documents": 0, "total_chunks": 0, "total_size": 0}',
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		);`,
-		`CREATE TABLE IF NOT EXISTS documents (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-			file_path TEXT NOT NULL,
-			file_name VARCHAR(255) NOT NULL,
-			content TEXT NOT NULL,
-			chunk_index INTEGER NOT NULL DEFAULT 0,
-			embedding vector(768),
-			metadata JSONB DEFAULT '{}',
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_collection_id ON documents(collection_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_file_path ON documents(file_path);`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING hnsw (embedding vector_cosine_ops);`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_content_fts ON documents USING gin(to_tsvector('english', content));`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_file_name_fts ON documents USING gin(to_tsvector('english', file_name));`,
-		`CREATE OR REPLACE FUNCTION update_updated_at_column()
-		RETURNS TRIGGER AS $$
-		BEGIN
-			NEW.updated_at = NOW();
-			RETURN NEW;
-		END;
-		$$ language 'plpgsql';`,
-		`DROP TRIGGER IF EXISTS update_collections_updated_at ON collections;`,
-		`CREATE TRIGGER update_collections_updated_at
-		BEFORE UPDATE ON collections
-		FOR EACH ROW
-		EXECUTE FUNCTION update_updated_at_column();`,
-		`DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;`,
-		`CREATE TRIGGER update_documents_updated_at
-		BEFORE UPDATE ON documents
-		FOR EACH ROW
-		EXECUTE FUNCTION update_updated_at_column();`,
+	// Run all pending migrations
+	if err := dm.migrationManager.Migrate(-1); err != nil {
+		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
-
-	for _, query := range queries {
-		if _, err := dm.db.Exec(query); err != nil {
-			return fmt.Errorf("failed to execute query: %w", err)
-		}
-	}
-
 	return nil
+}
+
+// GetEmbeddingDimensions gets the embedding dimensions for a collection
+func (dm *DatabaseManagerImpl) GetEmbeddingDimensions(collectionID string) (int, error) {
+	return dm.migrationManager.GetEmbeddingDimensions(collectionID)
+}
+
+// SetEmbeddingDimensions sets the embedding dimensions for a collection
+func (dm *DatabaseManagerImpl) SetEmbeddingDimensions(collectionID string, dimensions int, modelName string) error {
+	return dm.migrationManager.SetEmbeddingDimensions(collectionID, dimensions, modelName)
+}
+
+// GetMigrationVersion gets the current migration version
+func (dm *DatabaseManagerImpl) GetMigrationVersion() (int, error) {
+	return dm.migrationManager.GetCurrentVersion()
+}
+
+// RunMigrations runs migrations to a target version
+func (dm *DatabaseManagerImpl) RunMigrations(targetVersion int) error {
+	return dm.migrationManager.Migrate(targetVersion)
+}
+
+// GetTotalMigrations returns the total number of available migrations
+func (dm *DatabaseManagerImpl) GetTotalMigrations() int {
+	return len(dm.migrationManager.migrations)
 }

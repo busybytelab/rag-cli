@@ -27,8 +27,8 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	// Check default values
-	if config.Backend != "ollama" {
-		t.Errorf("Expected backend to be 'ollama', got '%s'", config.Backend)
+	if config.ChatBackend != "ollama" {
+		t.Errorf("Expected chat_backend to be 'ollama', got '%s'", config.ChatBackend)
 	}
 
 	if config.EmbeddingBackend != "ollama" {
@@ -54,16 +54,20 @@ func TestLoadConfig(t *testing.T) {
 	if config.Embedding.ChunkSize != 1000 {
 		t.Errorf("Expected chunk size to be 1000, got %d", config.Embedding.ChunkSize)
 	}
+
+	if config.Embedding.Dimensions != 1024 {
+		t.Errorf("Expected embedding dimensions to be 1024, got %d", config.Embedding.Dimensions)
+	}
 }
 
 func TestEmbeddingBackendFallback(t *testing.T) {
 	// Test that embedding backend falls back to main backend when not specified
 	config := &Config{
-		Backend: "openai",
+		ChatBackend: "openai",
 		OpenAI: OpenAIConfig{
-			APIKey:     "test-key",
-			Model:      "gpt-4",
-			EmbedModel: "text-embedding-3-small",
+			APIKey:         "test-key",
+			ChatModel:      "gpt-4",
+			EmbeddingModel: "text-embedding-3-small",
 		},
 		Database: DatabaseConfig{
 			Host:     "localhost",
@@ -72,6 +76,13 @@ func TestEmbeddingBackendFallback(t *testing.T) {
 			User:     "testuser",
 			Password: "",
 			SSLMode:  "disable",
+		},
+		Embedding: EmbeddingConfig{
+			ChunkSize:           1000,
+			ChunkOverlap:        200,
+			SimilarityThreshold: 0.7,
+			MaxResults:          10,
+			Dimensions:          1536, // text-embedding-3-small dimensions
 		},
 	}
 
@@ -88,13 +99,20 @@ func TestEmbeddingBackendFallback(t *testing.T) {
 func TestEmbeddingBackendValidation(t *testing.T) {
 	// Test invalid embedding backend
 	config := &Config{
-		Backend:          "ollama",
+		ChatBackend:      "ollama",
 		EmbeddingBackend: "invalid",
 		Ollama: OllamaConfig{
-			Host:       "localhost",
-			Port:       11434,
-			Model:      "llama3.2:3b",
-			EmbedModel: "nomic-embed-text",
+			Host:           "localhost",
+			Port:           11434,
+			ChatModel:      "qwen3:4b",
+			EmbeddingModel: "dengcao/Qwen3-Embedding-0.6B:Q8_0",
+		},
+		Embedding: EmbeddingConfig{
+			ChunkSize:           1000,
+			ChunkOverlap:        200,
+			SimilarityThreshold: 0.7,
+			MaxResults:          10,
+			Dimensions:          1024, // dengcao/Qwen3-Embedding-0.6B:Q8_0 dimensions
 		},
 	}
 

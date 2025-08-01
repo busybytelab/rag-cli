@@ -65,7 +65,7 @@ func (c *OpenAIClient) GenerateEmbedding(ctx context.Context, text string) ([]fl
 // Chat performs a chat completion with the specified model
 func (c *OpenAIClient) Chat(ctx context.Context, model string, messages []Message, stream bool) (*ChatResponse, error) {
 	if model == "" {
-		model = c.config.Model
+		model = c.config.ChatModel
 	}
 
 	// Convert our Message type to OpenAI format
@@ -167,7 +167,7 @@ func (c *OpenAIClient) Chat(ctx context.Context, model string, messages []Messag
 // Generate performs text generation with the specified model
 func (c *OpenAIClient) Generate(ctx context.Context, model string, prompt string, options map[string]interface{}) (*GenerateResponse, error) {
 	if model == "" {
-		model = c.config.Model
+		model = c.config.ChatModel
 	}
 
 	params := openai.CompletionNewParams{

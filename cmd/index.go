@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/busybytelab.com/rag-cli/pkg/client"
+	"github.com/busybytelab.com/rag-cli/pkg/config"
 	"github.com/busybytelab.com/rag-cli/pkg/database"
 	"github.com/busybytelab.com/rag-cli/pkg/embedding"
 	"github.com/busybytelab.com/rag-cli/pkg/output"
@@ -46,6 +47,13 @@ Examples:
 		}
 		defer db.Close()
 
+		// Create database manager
+		dbManager, err := database.NewDatabaseManager(&cfg.Database)
+		if err != nil {
+			return fmt.Errorf("failed to create database manager: %w", err)
+		}
+		defer dbManager.Close()
+
 		// Create managers
 		collectionMgr := database.NewCollectionManager(db)
 		documentMgr := database.NewDocumentManager(db)
@@ -67,6 +75,22 @@ Examples:
 
 		// Create embedding service
 		embeddingService := embedding.New(embedder, &cfg.Embedding)
+
+		// Set embedding dimensions for the collection based on the model
+		embeddingModel := getEmbeddingModel(cfg)
+		dimensions, err := embedding.GetModelDimensions(embeddingModel)
+		if err != nil {
+			output.Warning("Could not determine embedding dimensions for model %s: %v", embeddingModel, err)
+			output.Info("Using configured dimensions: %d", cfg.Embedding.Dimensions)
+			dimensions = cfg.Embedding.Dimensions
+		} else {
+			output.Info("Using %d dimensions for model: %s", dimensions, embeddingModel)
+		}
+
+		// Update collection with correct embedding dimensions
+		if err := dbManager.SetEmbeddingDimensions(collection.ID, dimensions, embeddingModel); err != nil {
+			output.Warning("Failed to set embedding dimensions: %v", err)
+		}
 
 		// Process each folder
 		totalFiles := 0
@@ -99,6 +123,18 @@ Examples:
 
 		return nil
 	},
+}
+
+// getEmbeddingModel returns the embedding model name from configuration
+func getEmbeddingModel(cfg *config.Config) string {
+	switch cfg.EmbeddingBackend {
+	case "ollama":
+		return cfg.Ollama.EmbeddingModel
+	case "openai":
+		return cfg.OpenAI.EmbeddingModel
+	default:
+		return cfg.Ollama.EmbeddingModel // fallback
+	}
 }
 
 // processFolder processes all files in a folder

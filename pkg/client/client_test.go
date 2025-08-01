@@ -9,18 +9,18 @@ import (
 func TestNewEmbedder(t *testing.T) {
 	// Test with Ollama as embedding backend
 	cfg := &config.Config{
-		Backend:          "openai",
+		ChatBackend:      "openai",
 		EmbeddingBackend: "ollama",
 		Ollama: config.OllamaConfig{
-			Host:       "localhost",
-			Port:       11434,
-			Model:      "llama3.2:3b",
-			EmbedModel: "nomic-embed-text",
+			Host:           "localhost",
+			Port:           11434,
+			ChatModel:      "qwen3:4b",
+			EmbeddingModel: "dengcao/Qwen3-Embedding-0.6B:Q8_0",
 		},
 		OpenAI: config.OpenAIConfig{
-			APIKey:     "test-key",
-			Model:      "gpt-4",
-			EmbedModel: "text-embedding-3-small",
+			APIKey:         "test-key",
+			ChatModel:      "gpt-4",
+			EmbeddingModel: "text-embedding-3-small",
 		},
 		Database: config.DatabaseConfig{
 			Host:     "localhost",
@@ -69,13 +69,13 @@ func TestNewEmbedder(t *testing.T) {
 
 func TestNewEmbedderInvalidBackend(t *testing.T) {
 	cfg := &config.Config{
-		Backend:          "ollama",
+		ChatBackend:      "ollama",
 		EmbeddingBackend: "invalid",
 		Ollama: config.OllamaConfig{
-			Host:       "localhost",
-			Port:       11434,
-			Model:      "llama3.2:3b",
-			EmbedModel: "nomic-embed-text",
+			Host:           "localhost",
+			Port:           11434,
+			ChatModel:      "qwen3:4b",
+			EmbeddingModel: "dengcao/Qwen3-Embedding-0.6B:Q8_0",
 		},
 		Database: config.DatabaseConfig{
 			Host:     "localhost",
