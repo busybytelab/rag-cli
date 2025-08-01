@@ -10,4 +10,4 @@ updates:
       - "go"
     commit-message:
       prefix: "chore"
-      include: "scope" 
+      include: "scope"
