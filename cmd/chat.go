@@ -30,23 +30,25 @@ func getDefaultModelName(cfg *config.Config) string {
 
 // chatSession represents an active chat session
 type chatSession struct {
-	collectionID     string
-	limit            int
-	systemPrompt     string
-	userPrompt       string
-	searchQuery      string
-	chatModel        string
-	searchType       database.SearchType
-	vectorWeight     float64
-	textWeight       float64
-	minScore         float64
-	maxDistance      float64
-	collectionMgr    database.CollectionManager
-	searchEngine     database.SearchEngine
-	ollamaClient     client.Client
-	embeddingService *embedding.Service
-	conversation     []client.Message
-	reader           *bufio.Reader
+	collectionID      string
+	limit             int
+	systemPrompt      string
+	userPrompt        string
+	searchQuery       string
+	chatModel         string
+	searchType        database.SearchType
+	vectorWeight      float64
+	textWeight        float64
+	minScore          float64
+	maxDistance       float64
+	rerank            bool
+	rerankInstruction string
+	collectionMgr     database.CollectionManager
+	searchEngine      database.SearchEngine
+	ollamaClient      client.Client
+	embeddingService  *embedding.Service
+	conversation      []client.Message
+	reader            *bufio.Reader
 }
 
 var chatCmd = &cobra.Command{
@@ -64,9 +66,14 @@ The chat session supports multiple search types to find the most relevant docume
 - hybrid: Combined vector and text search (default)
 - semantic: Semantic search with filters
 
+Reranking can be enabled with the --rerank flag for improved document retrieval accuracy.
+
 Examples:
   # Start a chat session with a collection (uses hybrid search by default)
   rag-cli chat my-docs-collection
+
+  # Start with reranking enabled
+  rag-cli chat my-docs-collection --rerank
 
   # Start with a custom system prompt
   rag-cli chat my-docs-collection --system "You are a technical expert"
@@ -96,7 +103,10 @@ Examples:
   rag-cli chat my-docs-collection --search-type hybrid --vector-weight 0.8 --text-weight 0.2
 
   # Use semantic search with filters
-  rag-cli chat my-docs-collection --search-type semantic`,
+  rag-cli chat my-docs-collection --search-type semantic
+
+  # Use reranking with custom instruction
+  rag-cli chat my-docs-collection --rerank --rerank-instruction "Focus on practical examples"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		collectionID := args[0]
@@ -124,6 +134,8 @@ func initializeChatSession(cmd *cobra.Command, collectionID string) (*chatSessio
 	textWeight, _ := cmd.Flags().GetFloat64("text-weight")
 	minScore, _ := cmd.Flags().GetFloat64("min-score")
 	maxDistance, _ := cmd.Flags().GetFloat64("max-distance")
+	rerank, _ := cmd.Flags().GetBool("rerank")
+	rerankInstruction, _ := cmd.Flags().GetString("rerank-instruction")
 
 	// Parse search type
 	searchType := database.SearchType(searchTypeStr)
@@ -139,7 +151,19 @@ func initializeChatSession(cmd *cobra.Command, collectionID string) (*chatSessio
 
 	// Create managers
 	collectionMgr := database.NewCollectionManager(db)
-	searchEngine := database.NewSearchEngine(db)
+
+	// Create search engine with or without reranking
+	var searchEngine database.SearchEngine
+	if rerank {
+		// Create reranker
+		reranker, err := client.NewReranker(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create reranker: %w", err)
+		}
+		searchEngine = database.NewSearchEngineWithReranker(db, reranker)
+	} else {
+		searchEngine = database.NewSearchEngine(db)
+	}
 
 	// Get collection by ID or name
 	collection, err := collectionMgr.GetCollectionByIdOrName(collectionID)
@@ -163,23 +187,25 @@ func initializeChatSession(cmd *cobra.Command, collectionID string) (*chatSessio
 	embeddingService := embedding.New(embedder, &cfg.Embedding)
 
 	session := &chatSession{
-		collectionID:     collection.ID,
-		limit:            limit,
-		systemPrompt:     systemPrompt,
-		userPrompt:       userPrompt,
-		searchQuery:      searchQuery,
-		chatModel:        chatModel,
-		searchType:       searchType,
-		vectorWeight:     vectorWeight,
-		textWeight:       textWeight,
-		minScore:         minScore,
-		maxDistance:      maxDistance,
-		collectionMgr:    collectionMgr,
-		searchEngine:     searchEngine,
-		ollamaClient:     chatClient,
-		embeddingService: embeddingService,
-		conversation:     make([]client.Message, 0),
-		reader:           bufio.NewReader(os.Stdin),
+		collectionID:      collection.ID,
+		limit:             limit,
+		systemPrompt:      systemPrompt,
+		userPrompt:        userPrompt,
+		searchQuery:       searchQuery,
+		chatModel:         chatModel,
+		searchType:        searchType,
+		vectorWeight:      vectorWeight,
+		textWeight:        textWeight,
+		minScore:          minScore,
+		maxDistance:       maxDistance,
+		rerank:            rerank,
+		rerankInstruction: rerankInstruction,
+		collectionMgr:     collectionMgr,
+		searchEngine:      searchEngine,
+		ollamaClient:      chatClient,
+		embeddingService:  embeddingService,
+		conversation:      make([]client.Message, 0),
+		reader:            bufio.NewReader(os.Stdin),
 	}
 
 	output.Success("Starting chat session with collection: %s", collection.Name)
@@ -198,6 +224,12 @@ func initializeChatSession(cmd *cobra.Command, collectionID string) (*chatSessio
 	if searchType == database.SearchTypeHybrid {
 		output.KeyValuef("Vector Weight", "%.1f", vectorWeight)
 		output.KeyValuef("Text Weight", "%.1f", textWeight)
+	}
+	if rerank {
+		output.KeyValue("Reranking", "Enabled")
+		if rerankInstruction != "" {
+			output.KeyValue("Reranking Instruction", rerankInstruction)
+		}
 	}
 
 	// Show different messages based on whether this is interactive or non-interactive
@@ -290,6 +322,15 @@ func (s *chatSession) generateAndDisplayResponse(userInput string) error {
 		TextWeight:   s.textWeight,
 		MinScore:     s.minScore,
 		MaxDistance:  s.maxDistance,
+	}
+
+	// Add reranking options if enabled
+	if s.rerank {
+		searchOpts.EnableReranking = true
+		searchOpts.RerankInstruction = s.rerankInstruction
+		// Use default weights for reranking
+		searchOpts.OriginalWeight = 0.7
+		searchOpts.RerankWeight = 0.3
 	}
 
 	// Search for relevant documents using the search text
@@ -395,5 +436,7 @@ func init() {
 	chatCmd.Flags().Float64P("text-weight", "", 0.3, "Weight for text similarity (0.0-1.0)")
 	chatCmd.Flags().Float64P("min-score", "", 0.1, "Minimum similarity score")
 	chatCmd.Flags().Float64P("max-distance", "", 0.8, "Maximum vector distance")
+	chatCmd.Flags().BoolP("rerank", "r", false, "Enable reranking for document retrieval")
+	chatCmd.Flags().String("rerank-instruction", "", "Custom instruction for reranking (e.g., 'Focus on practical examples')")
 	rootCmd.AddCommand(chatCmd)
 }

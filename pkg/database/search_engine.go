@@ -1,21 +1,32 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
 
+	"github.com/busybytelab.com/rag-cli/pkg/client"
 	"github.com/pgvector/pgvector-go"
 )
 
 // SearchEngineImpl implements SearchEngine interface
 type SearchEngineImpl struct {
-	db *sql.DB
+	db       *sql.DB
+	reranker client.Reranker
 }
 
 // NewSearchEngine creates a new search engine
 func NewSearchEngine(db *sql.DB) SearchEngine {
 	return &SearchEngineImpl{db: db}
+}
+
+// NewSearchEngineWithReranker creates a new search engine with reranking capability
+func NewSearchEngineWithReranker(db *sql.DB, reranker client.Reranker) SearchEngine {
+	return &SearchEngineImpl{
+		db:       db,
+		reranker: reranker,
+	}
 }
 
 // SearchDocuments performs similarity search using vector similarity
@@ -55,18 +66,35 @@ func (se *SearchEngineImpl) SearchDocumentsWithOptions(collectionID string, embe
 		}
 	}
 
+	var results []*SearchResult
+	var err error
+
 	switch opts.SearchType {
 	case SearchTypeVector:
-		return se.searchVectorOnly(collectionID, embedding, limit, opts)
+		results, err = se.searchVectorOnly(collectionID, embedding, limit, opts)
 	case SearchTypeText:
-		return se.searchTextOnly(collectionID, textQuery, limit, opts)
+		results, err = se.searchTextOnly(collectionID, textQuery, limit, opts)
 	case SearchTypeHybrid:
-		return se.searchHybrid(collectionID, embedding, textQuery, limit, opts)
+		results, err = se.searchHybrid(collectionID, embedding, textQuery, limit, opts)
 	case SearchTypeSemantic:
-		return se.searchSemantic(collectionID, embedding, textQuery, limit, opts)
+		results, err = se.searchSemantic(collectionID, embedding, textQuery, limit, opts)
 	default:
-		return se.searchHybrid(collectionID, embedding, textQuery, limit, opts)
+		results, err = se.searchHybrid(collectionID, embedding, textQuery, limit, opts)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply reranking if enabled and reranker is available
+	if opts.EnableReranking && se.reranker != nil {
+		results, err = se.applyReranking(context.Background(), textQuery, results, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply reranking: %w", err)
+		}
+	}
+
+	return results, nil
 }
 
 // searchVectorOnly performs vector similarity search only
@@ -381,6 +409,89 @@ func (se *SearchEngineImpl) searchSemantic(collectionID string, embedding []floa
 			CombinedScore: vectorScore * opts.VectorWeight,
 		}
 		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// applyReranking applies reranking to search results
+func (se *SearchEngineImpl) applyReranking(ctx context.Context, textQuery string, results []*SearchResult, opts *SearchOptions) ([]*SearchResult, error) {
+	if se.reranker == nil {
+		return results, fmt.Errorf("reranker not initialized")
+	}
+
+	// Extract document contents for reranking
+	documents := make([]string, len(results))
+	for i, result := range results {
+		documents[i] = result.Document.Content
+	}
+
+	// Use default instruction if not provided
+	instruction := opts.RerankInstruction
+	if instruction == "" {
+		instruction = "Given a web search query, retrieve relevant passages that answer the query"
+	}
+
+	// Call reranking service
+	rerankResults, err := se.reranker.Rerank(ctx, textQuery, documents, instruction)
+	if err != nil {
+		return nil, fmt.Errorf("reranking failed: %w", err)
+	}
+
+	// Create a map of document content to rerank result for quick lookup
+	rerankMap := make(map[string]*client.RerankResult)
+	for _, rr := range rerankResults {
+		rerankMap[rr.Document] = &rr
+	}
+
+	// Update search results with reranking scores
+	for _, result := range results {
+		if rerankResult, exists := rerankMap[result.Document.Content]; exists {
+			// Update the combined score using the specified weights
+			originalScore := result.CombinedScore
+			rerankingScore := rerankResult.Score
+
+			// Use default weights if not specified
+			originalWeight := opts.OriginalWeight
+			rerankWeight := opts.RerankWeight
+			if originalWeight == 0 && rerankWeight == 0 {
+				originalWeight = 0.7
+				rerankWeight = 0.3
+			}
+
+			result.CombinedScore = originalWeight*originalScore + rerankWeight*rerankingScore
+			result.Rank = rerankResult.Rank
+		}
+	}
+
+	// Sort by new combined score
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[i].CombinedScore < results[j].CombinedScore {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+
+	// Update ranks after sorting
+	for i, result := range results {
+		result.Rank = i + 1
+	}
+
+	// Apply minimum score filter if specified
+	if opts.MinScore > 0 {
+		var filtered []*SearchResult
+		for _, result := range results {
+			if result.CombinedScore >= opts.MinScore {
+				filtered = append(filtered, result)
+			}
+		}
+		results = filtered
+	}
+
+	// Apply rerank limit if specified
+	if opts.RerankLimit > 0 && len(results) > opts.RerankLimit {
+		results = results[:opts.RerankLimit]
 	}
 
 	return results, nil

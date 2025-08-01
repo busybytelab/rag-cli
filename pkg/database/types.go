@@ -82,6 +82,13 @@ type SearchOptions struct {
 	ContentFilter string     `json:"content_filter"`  // Content text filter
 	UseFuzzyMatch bool       `json:"use_fuzzy_match"` // Enable fuzzy text matching
 	FuzzyDistance int        `json:"fuzzy_distance"`  // Levenshtein distance for fuzzy matching
+
+	// Reranking options
+	EnableReranking   bool    `json:"enable_reranking"`   // Enable reranking for search results
+	RerankInstruction string  `json:"rerank_instruction"` // Custom instruction for reranking
+	OriginalWeight    float64 `json:"original_weight"`    // Weight for original search score (0.0-1.0)
+	RerankWeight      float64 `json:"rerank_weight"`      // Weight for reranking score (0.0-1.0)
+	RerankLimit       int     `json:"rerank_limit"`       // Number of results to rerank (0 = all)
 }
 
 // SearchResult represents a search result with scoring information

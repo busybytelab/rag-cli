@@ -1,27 +1,47 @@
-# RAG CLI Database Configuration Example
-# Copy this to ~/.rag-cli/config.yaml
+# RAG CLI Configuration Example
+# Copy this file to ~/.rag-cli/config.yaml and modify as needed
 
-database:
-  host: localhost
-  port: 5432
-  name: ragcli
-  user: ragcli_admin
-  password: 
-  ssl_mode: prefer
+# Chat backend for chat and generation operations
+chat_backend: ollama
 
+# Embedding backend for vector embeddings (defaults to chat_backend if not specified)
+embedding_backend: ollama
+
+# Ollama configuration
 ollama:
   host: localhost
   port: 11434
   tls: false
   chat_model: qwen3:4b
   embedding_model: dengcao/Qwen3-Embedding-0.6B:Q8_0
+  reranker_model: dengcao/Qwen3-Reranker-0.6B:Q8_0
 
+# OpenAI configuration
+openai:
+  api_key: "your-openai-api-key"
+  base_url: ""  # Optional: for local servers like llama-server
+  chat_model: gpt-4
+  embedding_model: text-embedding-3-small
+  reranker_model: text-embedding-3-small  # OpenAI doesn't have dedicated reranker, use embedding model
+
+# Database configuration
+database:
+  host: localhost
+  port: 5432
+  name: rag_cli
+  user: postgres
+  password: ""
+  ssl_mode: prefer
+
+# Embedding configuration
 embedding:
   chunk_size: 1000
   chunk_overlap: 200
   similarity_threshold: 0.7
   max_results: 10
+  dimensions: 1024  # Default for dengcao/Qwen3-Embedding-0.6B:Q8_0
 
+# General configuration
 general:
   log_level: info
   data_dir: ~/.rag-cli/data

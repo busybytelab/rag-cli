@@ -35,6 +35,7 @@ type OllamaConfig struct {
 	TLS            bool   `mapstructure:"tls" yaml:"tls"`
 	ChatModel      string `mapstructure:"chat_model" yaml:"chat_model"`
 	EmbeddingModel string `mapstructure:"embedding_model" yaml:"embedding_model"`
+	RerankerModel  string `mapstructure:"reranker_model" yaml:"reranker_model"`
 }
 
 // OpenAIConfig represents OpenAI API configuration
@@ -43,6 +44,7 @@ type OpenAIConfig struct {
 	BaseURL        string `mapstructure:"base_url" yaml:"base_url"` // For local servers like llama-server
 	ChatModel      string `mapstructure:"chat_model" yaml:"chat_model"`
 	EmbeddingModel string `mapstructure:"embedding_model" yaml:"embedding_model"`
+	RerankerModel  string `mapstructure:"reranker_model" yaml:"reranker_model"`
 }
 
 // DatabaseConfig represents PostgreSQL database configuration
@@ -426,12 +428,14 @@ func getDefaultConfig() *Config {
 			TLS:            false,
 			ChatModel:      "qwen3:4b",
 			EmbeddingModel: "dengcao/Qwen3-Embedding-0.6B:Q8_0",
+			RerankerModel:  "dengcao/Qwen3-Reranker-0.6B:Q8_0",
 		},
 		OpenAI: OpenAIConfig{
 			APIKey:         "",
 			BaseURL:        "",
 			ChatModel:      "gpt-4",
 			EmbeddingModel: "text-embedding-3-small",
+			RerankerModel:  "text-embedding-3-small", // OpenAI doesn't have dedicated reranker, use embedding model
 		},
 		Database: DatabaseConfig{
 			Host:     "localhost",

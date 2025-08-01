@@ -15,6 +15,18 @@ type (
 		GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
 	}
 
+	// Reranker represents an interface for reranking search results
+	Reranker interface {
+		Rerank(ctx context.Context, query string, documents []string, instruction string) ([]RerankResult, error)
+	}
+
+	// RerankResult represents a reranked document with relevance score
+	RerankResult struct {
+		Document string  `json:"document"`
+		Score    float64 `json:"score"`
+		Rank     int     `json:"rank"`
+	}
+
 	// Client represents a generic LLM API client interface
 	Client interface {
 		Embedder

@@ -22,6 +22,8 @@ This command supports multiple search types:
 - hybrid: Combined vector and text search
 - semantic: Semantic search with filters
 
+Reranking can be enabled with the --rerank flag for improved result accuracy.
+
 Examples:
   # Vector search (default)
   rag-cli search my-docs-collection "machine learning algorithms"
@@ -31,6 +33,9 @@ Examples:
 
   # Hybrid search with custom weights
   rag-cli search my-docs-collection "neural networks" --type hybrid --vector-weight 0.7 --text-weight 0.3
+
+  # Search with reranking enabled
+  rag-cli search my-docs-collection "API documentation" --rerank --rerank-instruction "Focus on code examples"
 
   # Search with filters
   rag-cli search my-docs-collection "API documentation" --file-filter "*.md" --content-filter "authentication"
@@ -57,6 +62,13 @@ Examples:
 		fileFilter, _ := cmd.Flags().GetString("file-filter")
 		contentFilter, _ := cmd.Flags().GetString("content-filter")
 
+		// Get reranking options
+		enableReranking, _ := cmd.Flags().GetBool("rerank")
+		rerankInstruction, _ := cmd.Flags().GetString("rerank-instruction")
+		originalWeight, _ := cmd.Flags().GetFloat64("original-weight")
+		rerankWeight, _ := cmd.Flags().GetFloat64("rerank-weight")
+		rerankLimit, _ := cmd.Flags().GetInt("rerank-limit")
+
 		// Connect to database
 		db, err := database.NewConnection(&cfg.Database)
 		if err != nil {
@@ -66,7 +78,19 @@ Examples:
 
 		// Create managers
 		collectionMgr := database.NewCollectionManager(db)
-		searchEngine := database.NewSearchEngine(db)
+
+		// Create search engine with or without reranking
+		var searchEngine database.SearchEngine
+		if enableReranking {
+			// Create reranker
+			reranker, err := client.NewReranker(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to create reranker: %w", err)
+			}
+			searchEngine = database.NewSearchEngineWithReranker(db, reranker)
+		} else {
+			searchEngine = database.NewSearchEngine(db)
+		}
 
 		// Get collection by ID or name
 		collection, err := collectionMgr.GetCollectionByIdOrName(collectionID)
@@ -87,6 +111,15 @@ Examples:
 			MaxDistance:   maxDistance,
 			FileFilter:    fileFilter,
 			ContentFilter: contentFilter,
+		}
+
+		// Add reranking options if enabled
+		if enableReranking {
+			searchOpts.EnableReranking = true
+			searchOpts.RerankInstruction = rerankInstruction
+			searchOpts.OriginalWeight = originalWeight
+			searchOpts.RerankWeight = rerankWeight
+			searchOpts.RerankLimit = rerankLimit
 		}
 
 		// Determine if we need embeddings based on search type
@@ -178,5 +211,13 @@ func init() {
 	searchCmd.Flags().Float64P("max-distance", "", 1.0, "Maximum vector distance")
 	searchCmd.Flags().StringP("file-filter", "", "", "Filter by file name pattern")
 	searchCmd.Flags().StringP("content-filter", "", "", "Filter by content text")
+
+	// Reranking flags
+	searchCmd.Flags().BoolP("rerank", "r", false, "Enable reranking for improved results")
+	searchCmd.Flags().String("rerank-instruction", "Given a web search query, retrieve relevant passages that answer the query", "Custom instruction for reranking")
+	searchCmd.Flags().Float64("original-weight", 0.7, "Weight for original search score (0.0-1.0)")
+	searchCmd.Flags().Float64("rerank-weight", 0.3, "Weight for reranking score (0.0-1.0)")
+	searchCmd.Flags().Int("rerank-limit", 0, "Number of results to rerank (0 = all)")
+
 	rootCmd.AddCommand(searchCmd)
 }
