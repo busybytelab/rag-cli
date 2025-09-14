@@ -26,9 +26,7 @@ brew services start postgresql@17
 # Install pgvector extension
 brew install pgvector
 
-# Install Ollama
-brew install ollama
-ollama serve
+# Download and install Ollama from https://ollama.ai
 ```
 
 ### Manual Installation
