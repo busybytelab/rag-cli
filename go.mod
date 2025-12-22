@@ -6,7 +6,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/lib/pq v1.10.9
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/ollama/ollama v0.13.3
+	github.com/ollama/ollama v0.13.5
 	github.com/openai/openai-go v1.12.0
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/spf13/cobra v1.10.1
