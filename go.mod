@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.11.2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ollama/ollama v0.13.3
 	github.com/openai/openai-go v1.12.0
